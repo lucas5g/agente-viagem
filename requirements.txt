@@ -1,0 +1,8 @@
+openai 
+python-dotenv 
+duckduckgo-search
+wikipedia 
+langchain-openai
+langchain-community 
+langchainhub 
+langchain-chroma
