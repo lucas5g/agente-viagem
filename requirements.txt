@@ -8,4 +8,4 @@ langchainhub
 langchain-chroma 
 streamlit
 chromadb
-protobuf=3.20.x
+protobuf==3.20.x
