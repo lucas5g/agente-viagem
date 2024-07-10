@@ -9,12 +9,12 @@ from langchain_core.runnables.base import RunnableSequence
 from langchain_core.prompts import PromptTemplate
 import bs4
 import os
+import streamlit as st
 
-os.environ["OPENAI_API_KEY"]
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
-query = "Vou viajar para Londres em agosto de 2024. Quero que faça um roteiro de viagem para mim com os eventos que irão ocorrer na data da viagem e com o preço de passagem de São Paulo para Londres."
+# query = "Vou viajar para Londres em agosto de 2024. Quero que faça um roteiro de viagem para mim com os eventos que irão ocorrer na data da viagem e com o preço de passagem de São Paulo para Londres."
 
 
 def research_agent(query):
@@ -22,36 +22,45 @@ def research_agent(query):
     prompt = hub.pull("hwchase17/react")
     agent = create_react_agent(llm, tools, prompt)
     agent_executor = AgentExecutor(
-        agent=agent, tools=tools, prompt=prompt, verbose=True
+        agent=agent, tools=tools, prompt=prompt,
     )
-    web = agent_executor.invoke({"input": query})
 
-    return web["output"]
+    res = agent_executor.invoke({"input":query})['output']
 
-
-# def load_data():
-loader = WebBaseLoader(
-    web_path="https://www.dicasdeviagem.com/inglaterra/",
-    bs_kwargs=dict(
-        parse_only=bs4.SoupStrainer(class_=("postcontentwrap", "pagetitleloading"))
-    ),
-)
-
+    return res
 
 def load_data():
+    loader = WebBaseLoader(
+        web_path="https://www.dicasdeviagem.com/inglaterra/",
+        bs_kwargs=dict(
+            parse_only=bs4.SoupStrainer(class_=("postcontentwrap", "pagetitleloading"))
+        ),
+    )
+
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
 
-    vertor_store = Chroma.from_documents(
-        documents=splits,
-        embedding=OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")),
+    vector_store = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")))
+
+    return vector_store.as_retriever()
+
+
+def load_data():
+    loader = WebBaseLoader(
+        web_path="https://www.dicasdeviagem.com/inglaterra/",
+        bs_kwargs=dict(
+            parse_only=bs4.SoupStrainer(class_=("postcontentwrap", "pagetitleloading"))
+        ),
     )
 
-    retriever = vertor_store.as_retriever()
+    docs = loader.load()
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splits = text_splitter.split_documents(docs)
 
-    return retriever
+    vector_store = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")))
 
+    return vector_store.as_retriever()
 
 def get_relevant_docs(query: str):
     retriever = load_data()
@@ -81,6 +90,22 @@ def supervisor_agent(query, web, relevant_documents):
 def get_response(query):
     web = research_agent(query)
     relevant_documents = get_relevant_docs(query)
-    return supervisor_agent(query, web, relevant_documents)
+    return supervisor_agent(query, web, relevant_documents).content
 
-get_response(query)
+
+def lambda_handler(event, context):
+    query = event.get('question')
+    
+    response = get_response(query).content 
+    return {"body": response, "status":200}
+    
+    
+st.title("Agente de Viagens")
+st.write("Saiba tudo sobre a Inglaterra.")
+
+query = st.chat_input('Busque informações sobre viagens para inglaterra')
+
+if query:
+    response = get_response(query)
+    st.write(response)
+    
