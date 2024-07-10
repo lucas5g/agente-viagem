@@ -4,7 +4,6 @@ from langchain.agents import create_react_agent, AgentExecutor
 from langchain import hub
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
 from langchain_core.runnables.base import RunnableSequence 
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS 
