@@ -8,4 +8,3 @@ langchainhub
 langchain-chroma 
 streamlit
 chromadb
-protobuf

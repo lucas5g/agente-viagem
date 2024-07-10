@@ -11,6 +11,10 @@ import bs4
 import os
 import streamlit as st
 
+import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
+
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
