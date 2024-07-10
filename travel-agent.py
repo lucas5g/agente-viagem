@@ -7,6 +7,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.runnables.base import RunnableSequence 
 from langchain_core.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS 
 import bs4
 import os
 import streamlit as st
@@ -18,7 +19,7 @@ os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
-# query = "Vou viajar para Londres em agosto de 2024. Quero que faça um roteiro de viagem para mim com os eventos que irão ocorrer na data da viagem e com o preço de passagem de São Paulo para Londres."
+query = "Vou viajar para Londres em agosto de 2024. Quero que faça um roteiro de viagem para mim com os eventos que irão ocorrer na data da viagem e com o preço de passagem de São Paulo para Londres."
 
 
 def research_agent(query):
@@ -41,36 +42,18 @@ def load_data():
         ),
     )
 
-    docs = loader.load()
+    documents = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    splits = text_splitter.split_documents(docs)
+    docs = text_splitter.split_documents(documents)
+    embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    db = FAISS.from_documents(docs, embeddings)
+    return db 
 
-    vector_store = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")))
-
-    return vector_store.as_retriever()
-
-
-def load_data():
-    loader = WebBaseLoader(
-        web_path="https://www.dicasdeviagem.com/inglaterra/",
-        bs_kwargs=dict(
-            parse_only=bs4.SoupStrainer(class_=("postcontentwrap", "pagetitleloading"))
-        ),
-    )
-
-    docs = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    splits = text_splitter.split_documents(docs)
-
-    vector_store = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")))
-
-    return vector_store.as_retriever()
 
 def get_relevant_docs(query: str):
-    retriever = load_data()
-    relevant_documents = retriever.invoke(query)
-    return relevant_documents
-
+    db = load_data()
+    docs = db.similarity_search(query)
+    return docs
 
 def supervisor_agent(query, web, relevant_documents):
     prompt_template = """
